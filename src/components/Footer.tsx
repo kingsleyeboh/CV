@@ -1,10 +1,27 @@
+import { useState } from 'react';
 import { ArrowUp } from 'lucide-react';
-import { CV_DATA } from '../data/projects';
+import { CV_DATA, COUNTRY_PROFILES } from '../data/projects';
+import { CountryPerspective } from '../types';
 import { downloadPdf } from '../utils/downloadPdf';
 
-export default function Footer() {
+interface FooterProps {
+  country?: CountryPerspective;
+}
+
+export default function Footer({ country = 'international' }: FooterProps) {
+  const [downloading, setDownloading] = useState(false);
+  const currentProfile = COUNTRY_PROFILES[country] || COUNTRY_PROFILES.international;
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDownloadCV = async () => {
+    setDownloading(true);
+    try {
+      await downloadPdf(currentProfile.cvPath, currentProfile.cvFilename);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -22,10 +39,12 @@ export default function Footer() {
           </a>
           <button
             type="button"
-            onClick={() => downloadPdf('/cv.pdf', 'Eboh-Kingsley-Cabinetmaker-CV.pdf')}
-            className="text-amber-400 hover:underline font-medium"
+            onClick={handleDownloadCV}
+            disabled={downloading}
+            title={`Download ${currentProfile.label} CV (${currentProfile.cvFilename})`}
+            className="text-amber-400 hover:underline disabled:opacity-70 font-medium"
           >
-            Download CV
+            {downloading ? 'Preparing CV...' : `Download ${currentProfile.label} CV`}
           </button>
           <button
             onClick={scrollToTop}

@@ -1,14 +1,39 @@
-import { useEffect } from 'react';
-import { X, Download, Printer, FileText } from 'lucide-react';
-import { CV_DATA } from '../data/projects';
+import { useEffect, useRef, useState } from 'react';
+import { X, Download, FileText, Loader2 } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { CV_DATA, COUNTRY_PROFILES } from '../data/projects';
+import { CountryPerspective } from '../types';
 import { downloadPdf } from '../utils/downloadPdf';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface CVModalProps {
   isOpen: boolean;
   onClose: () => void;
+  country?: CountryPerspective;
+  onSelectCountry?: (c: CountryPerspective) => void;
 }
 
-export default function CVModal({ isOpen, onClose }: CVModalProps) {
+export default function CVModal({
+  isOpen,
+  onClose,
+  country = 'international',
+  onSelectCountry,
+}: CVModalProps) {
+  const [selectedCountry, setSelectedCountry] = useState<CountryPerspective>(country);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pageCount, setPageCount] = useState(0);
+  const [downloading, setDownloading] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedCountry(country);
+    }
+  }, [country, isOpen]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -19,11 +44,110 @@ export default function CVModal({ isOpen, onClose }: CVModalProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  const currentProfile = COUNTRY_PROFILES[selectedCountry] || COUNTRY_PROFILES.international;
 
-  const handlePrint = () => {
-    window.print();
-  };
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+    let loadingTask: pdfjsLib.PDFDocumentLoadingTask | null = null;
+    const abortController = new AbortController();
+
+    async function renderPdf() {
+      const container = containerRef.current;
+      if (!container) return;
+
+      setLoading(true);
+      setError(null);
+      setPageCount(0);
+      container.innerHTML = '';
+
+      try {
+        const base = import.meta.env.BASE_URL || '/';
+        const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+        const cleanPath = currentProfile.cvPath.startsWith('/')
+          ? currentProfile.cvPath.slice(1)
+          : currentProfile.cvPath;
+        const url = `${normalizedBase}${cleanPath}`;
+
+        const response = await fetch(url, {
+          credentials: 'same-origin',
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Unable to load ${currentProfile.cvFilename} (${response.status})`);
+        }
+
+        const buffer = await response.arrayBuffer();
+        if (cancelled) return;
+
+        loadingTask = pdfjsLib.getDocument({ data: buffer });
+        const loadedDoc = await loadingTask.promise;
+        if (cancelled) {
+          await loadingTask.destroy();
+          return;
+        }
+
+        setPageCount(loadedDoc.numPages);
+        const containerWidth = Math.max(container.clientWidth - 16, 320);
+        const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+
+        for (let pageNum = 1; pageNum <= loadedDoc.numPages; pageNum++) {
+          if (cancelled) break;
+
+          const page = await loadedDoc.getPage(pageNum);
+          const unscaledViewport = page.getViewport({ scale: 1 });
+          const targetWidth = Math.min(containerWidth, 820);
+          const scale = targetWidth / unscaledViewport.width;
+          const viewport = page.getViewport({ scale });
+
+          const pageWrapper = document.createElement('div');
+          pageWrapper.className = 'bg-white rounded-lg shadow-xl overflow-hidden border border-zinc-800 mx-auto';
+          pageWrapper.style.width = `${Math.floor(viewport.width)}px`;
+
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.floor(viewport.width * outputScale);
+          canvas.height = Math.floor(viewport.height * outputScale);
+          canvas.style.width = `${Math.floor(viewport.width)}px`;
+          canvas.style.height = `${Math.floor(viewport.height)}px`;
+          canvas.className = 'block';
+
+          const context = canvas.getContext('2d');
+          if (!context) continue;
+
+          pageWrapper.appendChild(canvas);
+          container.appendChild(pageWrapper);
+
+          await page.render({
+            canvasContext: context,
+            canvas,
+            transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined,
+            viewport,
+          }).promise;
+        }
+      } catch (err) {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
+        setError(err instanceof Error ? err.message : 'Failed to load CV preview');
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    renderPdf();
+
+    return () => {
+      cancelled = true;
+      abortController.abort();
+      if (loadingTask) {
+        loadingTask.destroy().catch(() => {});
+      }
+    };
+  }, [isOpen, currentProfile.cvPath, currentProfile.cvFilename]);
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -34,220 +158,97 @@ export default function CVModal({ isOpen, onClose }: CVModalProps) {
       <div className="fixed inset-0" onClick={onClose} />
 
       <div className="relative w-full max-w-4xl rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl overflow-hidden z-10 my-8 max-h-[92vh] flex flex-col">
-        
         {/* Top Control Bar */}
-        <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between gap-4 bg-zinc-900 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30">
+        <div className="px-6 py-4 border-b border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-900 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 shrink-0">
               <FileText className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-base font-bold text-white">
-                {CV_DATA.name} — Curriculum Vitae Document
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                {CV_DATA.name} — {currentProfile.label} CV
               </h3>
-              <p className="text-xs text-zinc-300 font-medium">
-                {CV_DATA.title}
+              <p className="text-xs text-zinc-400 font-mono truncate">
+                {currentProfile.cvFilename}
+                {pageCount > 0 ? ` · ${pageCount} ${pageCount === 1 ? 'page' : 'pages'}` : ''}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={handlePrint}
-              className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold text-zinc-200 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-lg border border-zinc-700 transition-colors"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Print</span>
-            </button>
-
+          <div className="flex items-center gap-2.5 shrink-0">
             <button
               type="button"
-              onClick={() => downloadPdf('/cv.pdf', 'Eboh-Kingsley-Cabinetmaker-CV.pdf')}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold text-zinc-950 bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors"
+              onClick={async () => {
+                setDownloading(true);
+                try {
+                  await downloadPdf(currentProfile.cvPath, currentProfile.cvFilename);
+                } finally {
+                  setDownloading(false);
+                }
+              }}
+              disabled={downloading}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold text-zinc-950 bg-amber-500 hover:bg-amber-400 disabled:opacity-70 rounded-lg transition-colors whitespace-nowrap"
             >
               <Download className="w-4 h-4" />
-              <span>Download PDF</span>
+              <span>{downloading ? 'Preparing PDF...' : `Download PDF (${currentProfile.label})`}</span>
             </button>
 
             <button
               onClick={onClose}
               className="p-2 text-zinc-400 hover:text-white rounded-lg transition-colors"
+              aria-label="Close CV preview"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* CV Paper Document */}
-        <div className="overflow-y-auto p-6 sm:p-10 bg-white text-zinc-900 space-y-7 select-text font-sans">
-          
-          {/* Header */}
-          <div className="border-b-2 border-zinc-900 pb-5 space-y-2">
-            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-950">
-                {CV_DATA.name}
-              </h1>
-              <span className="text-xs sm:text-sm font-extrabold text-amber-700 uppercase tracking-widest">
-                Curriculum Vitae
-              </span>
-            </div>
-
-            <p className="text-xs sm:text-sm font-bold text-zinc-800 tracking-wide">
-              {CV_DATA.title}
-            </p>
-
-            <div className="pt-1 flex flex-wrap items-center gap-y-1 gap-x-4 text-xs sm:text-sm text-zinc-700 font-semibold">
-              <span>Location: {CV_DATA.location}</span>
-              <span>·</span>
-              <span>Phone: {CV_DATA.phone}</span>
-              <span>·</span>
-              <span>Email: {CV_DATA.email}</span>
-            </div>
-
-            <div className="pt-1 text-xs sm:text-sm font-bold text-amber-900 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-              {CV_DATA.sponsorship.join(' | ')}
-            </div>
-          </div>
-
-          {/* Professional Summary */}
-          <div className="space-y-2">
-            <h2 className="text-xs sm:text-sm font-extrabold text-zinc-950 uppercase tracking-widest border-b border-zinc-300 pb-1">
-              Professional Summary
-            </h2>
-            <p className="text-sm sm:text-base leading-relaxed text-zinc-800 font-normal">
-              {CV_DATA.summary}
-            </p>
-          </div>
-
-          {/* Key Skills */}
-          <div className="space-y-3">
-            <h2 className="text-xs sm:text-sm font-extrabold text-zinc-950 uppercase tracking-widest border-b border-zinc-300 pb-1">
-              Key Skills
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs sm:text-sm text-zinc-800">
-              <div>
-                <strong className="block text-zinc-950 mb-1.5 font-bold text-sm">Cabinet making and joinery:</strong>
-                <ul className="list-disc list-inside space-y-1">
-                  {CV_DATA.skills.joinery.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <strong className="block text-zinc-950 mb-1.5 font-bold text-sm">Materials and production:</strong>
-                <ul className="list-disc list-inside space-y-1">
-                  {CV_DATA.skills.materials.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <strong className="block text-zinc-950 mb-1.5 font-bold text-sm">Hardware and installation:</strong>
-                <ul className="list-disc list-inside space-y-1">
-                  {CV_DATA.skills.hardware.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <strong className="block text-zinc-950 mb-1.5 font-bold text-sm">Tools, equipment & software:</strong>
-                <ul className="list-disc list-inside space-y-1">
-                  {CV_DATA.skills.toolsAndSoftware.map((item, idx) => (
-                    <li key={idx}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Experience */}
-          <div className="space-y-4">
-            <h2 className="text-xs sm:text-sm font-extrabold text-zinc-950 uppercase tracking-widest border-b border-zinc-300 pb-1">
-              Experience
-            </h2>
-
-            {CV_DATA.primaryExperience.map((job, idx) => (
-              <div key={idx} className="space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                  <span className="text-sm font-bold text-zinc-950">
-                    {job.title} | {job.company}
-                  </span>
-                  <span className="text-xs sm:text-sm text-zinc-600 font-mono font-medium">
-                    {job.location} | {job.period}
-                  </span>
-                </div>
-                <ul className="list-disc list-inside text-xs sm:text-sm text-zinc-800 space-y-1.5 pl-1 leading-relaxed">
-                  {job.bullets.map((b, bIdx) => (
-                    <li key={bIdx}>{b}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          {/* Additional Employment Experience */}
-          <div className="space-y-3">
-            <h2 className="text-xs sm:text-sm font-extrabold text-zinc-950 uppercase tracking-widest border-b border-zinc-300 pb-1">
-              Additional Employment Experience
-            </h2>
-
-            <div className="space-y-2">
-              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                <span className="text-sm font-bold text-zinc-950">
-                  {CV_DATA.additionalExperience.title} | {CV_DATA.additionalExperience.company}
-                </span>
-                <span className="text-xs sm:text-sm text-zinc-600 font-mono font-medium">
-                  {CV_DATA.additionalExperience.location} | {CV_DATA.additionalExperience.period}
-                </span>
-              </div>
-              <ul className="list-disc list-inside text-xs sm:text-sm text-zinc-800 space-y-1.5 pl-1 leading-relaxed">
-                {CV_DATA.additionalExperience.bullets.map((b, bIdx) => (
-                  <li key={bIdx}>{b}</li>
-                ))}
-              </ul>
-              <div className="pt-2 text-xs font-semibold text-amber-900 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-                <span className="block font-bold text-amber-950 mb-1">Trade Background & Practice Statements:</span>
-                <ul className="list-disc list-inside space-y-1">
-                  {CV_DATA.additionalExperience.tradeStatements.map((stmt, sIdx) => (
-                    <li key={sIdx}>{stmt}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          {/* Training and Certificates */}
-          <div className="space-y-3">
-            <h2 className="text-xs sm:text-sm font-extrabold text-zinc-950 uppercase tracking-widest border-b border-zinc-300 pb-1">
-              Training and Certificates
-            </h2>
-            <ul className="list-disc list-inside text-xs sm:text-sm text-zinc-800 space-y-1.5">
-              {CV_DATA.education.map((cert, idx) => (
-                <li key={idx}>
-                  <strong>{cert.title}</strong> — {cert.institution} ({cert.date})
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Target Roles & References */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-zinc-200 text-xs sm:text-sm text-zinc-800">
-            <div>
-              <strong className="block text-zinc-950 mb-1 font-bold">Target Roles:</strong>
-              <p>{CV_DATA.targetRoles.join(' | ')}</p>
-            </div>
-            <div>
-              <strong className="block text-zinc-950 mb-1 font-bold">References:</strong>
-              <p>{CV_DATA.references}</p>
-            </div>
-          </div>
-
+        {/* Region CV Switcher */}
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-800 bg-zinc-900/80 px-6 py-2.5 shrink-0">
+          {(Object.keys(COUNTRY_PROFILES) as CountryPerspective[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                setSelectedCountry(key);
+                onSelectCountry?.(key);
+              }}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
+                selectedCountry === key
+                  ? 'bg-amber-500 text-zinc-950'
+                  : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+              }`}
+            >
+              {COUNTRY_PROFILES[key].label}
+            </button>
+          ))}
         </div>
 
+        {/* Live PDF Preview from /public/cv/ */}
+        <div className="overflow-y-auto p-4 sm:p-6 bg-zinc-950 flex-1 min-h-[420px]">
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-zinc-400 text-sm">
+              <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+              <span>Loading {currentProfile.cvFilename}...</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="max-w-md mx-auto my-12 p-5 rounded-xl bg-zinc-900 border border-zinc-800 text-center space-y-3">
+              <p className="text-sm text-zinc-300">{error}</p>
+              <button
+                type="button"
+                onClick={() => downloadPdf(currentProfile.cvPath, currentProfile.cvFilename)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-zinc-950 bg-amber-500 hover:bg-amber-400 rounded-lg"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download {currentProfile.cvFilename}</span>
+              </button>
+            </div>
+          )}
+
+          <div ref={containerRef} className="space-y-6 flex flex-col items-center" />
+        </div>
       </div>
     </div>
   );

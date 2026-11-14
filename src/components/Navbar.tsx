@@ -1,10 +1,26 @@
 import { useState } from 'react';
 import { Download, Menu, X } from 'lucide-react';
-import { CV_DATA } from '../data/projects';
+import { CV_DATA, COUNTRY_PROFILES } from '../data/projects';
+import { CountryPerspective } from '../types';
 import { downloadPdf } from '../utils/downloadPdf';
 
-export default function Navbar() {
+interface NavbarProps {
+  country?: CountryPerspective;
+}
+
+export default function Navbar({ country = 'international' }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const currentProfile = COUNTRY_PROFILES[country] || COUNTRY_PROFILES.international;
+
+  const handleDownloadCV = async () => {
+    setDownloading(true);
+    try {
+      await downloadPdf(currentProfile.cvPath, currentProfile.cvFilename);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const navLinks = [
     { label: 'Work', href: '#portfolio' },
@@ -42,11 +58,15 @@ export default function Navbar() {
           <div className="flex items-center gap-3 shrink-0">
             <button
               type="button"
-              onClick={() => downloadPdf('/cv.pdf', 'Eboh-Kingsley-Cabinetmaker-CV.pdf')}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-zinc-950 bg-amber-500 hover:bg-amber-400 rounded-lg transition-colors whitespace-nowrap shrink-0"
+              onClick={handleDownloadCV}
+              disabled={downloading}
+              title={`Download ${currentProfile.label} CV (${currentProfile.cvFilename})`}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-zinc-950 bg-amber-500 hover:bg-amber-400 disabled:opacity-70 rounded-lg transition-colors whitespace-nowrap shrink-0"
             >
               <Download className="w-4 h-4" />
-              <span>Download CV</span>
+              <span>
+                {downloading ? 'Preparing CV...' : `Download CV (${currentProfile.label})`}
+              </span>
             </button>
 
             <button

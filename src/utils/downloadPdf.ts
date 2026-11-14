@@ -4,7 +4,10 @@ export async function downloadPdf(path: string, filename: string): Promise<boole
   const cleanPath = path.startsWith('/') ? path.slice(1) : path;
   const url = `${normalizedBase}${cleanPath}`;
 
-  const response = await fetch(url, { credentials: 'same-origin' });
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
   if (!response.ok) {
     throw new Error(`Failed to fetch PDF (${response.status})`);
   }

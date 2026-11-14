@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Project, CountryPerspective } from './types';
 import { PROJECTS } from './data/projects';
+import { detectRegionByIp } from './utils/detectRegionByIp';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import ProjectsSection from './components/ProjectsSection';
@@ -26,6 +27,28 @@ export default function App() {
   const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
   const [selectedCertIndex, setSelectedCertIndex] = useState(0);
   const [country, setCountry] = useState<CountryPerspective>('international');
+  const hasUserSelectedRegionRef = useRef(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
+    detectRegionByIp(controller.signal).then((detectedRegion) => {
+      if (active && !hasUserSelectedRegionRef.current) {
+        setCountry(detectedRegion);
+      }
+    });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
+
+  const handleSelectCountry = (nextCountry: CountryPerspective) => {
+    hasUserSelectedRegionRef.current = true;
+    setCountry(nextCountry);
+  };
 
   const handleOpenCertificateModal = (index: number = 0) => {
     setSelectedCertIndex(index);
@@ -34,13 +57,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-amber-600 selection:text-white antialiased">
-      <Navbar />
+      <Navbar country={country} />
 
       <main className="flex-1">
         <Hero
           heroImage={HERO_IMAGE}
           country={country}
-          onSelectCountry={setCountry}
+          onSelectCountry={handleSelectCountry}
           onOpenCVModal={() => setIsCVModalOpen(true)}
           onOpenCertificateModal={() => handleOpenCertificateModal(0)}
         />
@@ -62,7 +85,7 @@ export default function App() {
         <ContactSection />
       </main>
 
-      <Footer />
+      <Footer country={country} />
 
       <ProjectModal
         project={selectedProject}
@@ -73,6 +96,8 @@ export default function App() {
       <CVModal
         isOpen={isCVModalOpen}
         onClose={() => setIsCVModalOpen(false)}
+        country={country}
+        onSelectCountry={handleSelectCountry}
       />
 
       <CertificateModal

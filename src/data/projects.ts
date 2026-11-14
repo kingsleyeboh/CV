@@ -6,6 +6,8 @@ export interface CountryProfile {
   statusTitle: string;
   summary: string;
   bullets: string[];
+  cvPath: string;
+  cvFilename: string;
 }
 
 export const COUNTRY_PROFILES: Record<CountryPerspective, CountryProfile> = {
@@ -18,10 +20,12 @@ export const COUNTRY_PROFILES: Record<CountryPerspective, CountryProfile> = {
       'Requires employer visa sponsorship',
       'Ready for international relocation',
       'Preparing TRA skills assessment & trade verification'
-    ]
+    ],
+    cvPath: '/cv/Eboh-Kingsley-cv-international.pdf',
+    cvFilename: 'Eboh-Kingsley-cv-international.pdf'
   },
   australia: {
-    label: 'Australia (ANZSCO 339911)',
+    label: 'Australia',
     badge: 'ANZSCO 339911 Cabinetmaker',
     statusTitle: 'Australia Sponsorship & Relocation',
     summary: `Qualified Cabinetmaker with 7 years of practical experience in carcass manufacturing, panel sizing, edge-banding, and on-site scribing and fitting for residential kitchens and built-in robes. Trained at Abuja Enterprise Agency (AEA) in collaboration with Dazzle Furniture Limited. Seeking employer visa sponsorship (Subclass 482/186) and preparing TRA Skills Assessment verification.`,
@@ -29,7 +33,9 @@ export const COUNTRY_PROFILES: Record<CountryPerspective, CountryProfile> = {
       'ANZSCO 339911 Cabinetmaker classification',
       'Seeking TSS 482 / Subclass 186 sponsorship',
       'Preparing Trades Recognition Australia (TRA) assessment'
-    ]
+    ],
+    cvPath: '/cv/Eboh-Kingsley-cv-AUS.pdf',
+    cvFilename: 'Eboh-Kingsley-cv-AUS.pdf'
   },
   uk: {
     label: 'United Kingdom',
@@ -40,18 +46,48 @@ export const COUNTRY_PROFILES: Record<CountryPerspective, CountryProfile> = {
       'UK SOC 5491 Skilled Carpenter & Cabinet Maker',
       'Requires UK Skilled Worker Visa sponsorship',
       'Carcass construction & on-site scribing competency'
-    ]
+    ],
+    cvPath: '/cv/Eboh-Kingsley-cv-UK.pdf',
+    cvFilename: 'Eboh-Kingsley-cv-UK.pdf'
   },
-  eu: {
-    label: 'Germany & Luxembourg',
-    badge: 'Tischler / Cabinet Maker',
-    statusTitle: 'European Relocation & Skilled Immigration',
-    summary: `Fitted Cabinet Maker and Joiner specializing in custom kitchen carcass production, melamine/MDF board fabrication, Blum soft-close hardware integration, and high-precision fitted storage. Trained at Abuja Enterprise Agency (AEA) in collaboration with Dazzle Furniture Limited. Open to EU Blue Card and skilled trades sponsorship.`,
+  luxembourg: {
+    label: 'Luxembourg',
+    badge: 'Menuisier / Cabinet Maker',
+    statusTitle: 'Luxembourg Relocation & EU Work Authorization',
+    summary: `Fitted Cabinet Maker and Joiner specializing in custom kitchen carcass production, melamine/MDF board fabrication, concealed soft-close hardware integration, and high-precision fitted storage. Trained at Abuja Enterprise Agency (AEA) in collaboration with Dazzle Furniture Limited. Seeking employer work permit sponsorship in Luxembourg.`,
     bullets: [
-      'European Tischler / Cabinet Maker trade scope',
-      'Open to Luxembourg & Germany sponsorship',
+      'European Menuisier / Cabinet Maker trade scope',
+      'Seeking Luxembourg employer sponsorship',
       'Melamine / MDF board processing & custom joinery'
-    ]
+    ],
+    cvPath: '/cv/Eboh-Kingsley-cv-LUX.pdf',
+    cvFilename: 'Eboh-Kingsley-cv-LUX.pdf'
+  },
+  germany: {
+    label: 'Germany',
+    badge: 'Tischler / Cabinet Maker',
+    statusTitle: 'Germany Skilled Immigration & Sponsorship',
+    summary: `Fitted Cabinet Maker and Joiner (Tischler) with 7 years of hands-on experience in custom kitchen carcass production, HDF/MDF/MFC board sizing, edge finishing, and precision on-site installation. Trained at Abuja Enterprise Agency (AEA) in collaboration with Dazzle Furniture Limited. Open to German skilled trades employment and recognition.`,
+    bullets: [
+      'Tischler / Cabinet Maker trade scope',
+      'Open to German skilled worker sponsorship',
+      'Precision carcass fabrication & SketchUp 3D planning'
+    ],
+    cvPath: '/cv/Eboh-Kingsley-cv-GER.pdf',
+    cvFilename: 'Eboh-Kingsley-cv-GER.pdf'
+  },
+  canada: {
+    label: 'Canada',
+    badge: 'NOC 72311 Cabinetmaker',
+    statusTitle: 'Canada LMIA / Skilled Trades Sponsorship',
+    summary: `Cabinetmaker (NOC 72311) with 7 years of hands-on experience designing, fabricating, and installing custom kitchen cabinetry, wardrobes, and fitted storage using HDF, MDF, and melamine-faced boards. Trained at Abuja Enterprise Agency (AEA) in collaboration with Dazzle Furniture Limited. Seeking Canadian employer sponsorship and relocation.`,
+    bullets: [
+      'Canada NOC 72311 Cabinetmaker classification',
+      'Seeking LMIA / employer-sponsored work permit',
+      'Full-cycle workshop fabrication & site installation'
+    ],
+    cvPath: '/cv/Eboh-Kingsley-cv-CAN.pdf',
+    cvFilename: 'Eboh-Kingsley-cv-CAN.pdf'
   }
 };
 

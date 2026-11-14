@@ -225,14 +225,14 @@ function generateCV() {
   doc.setTextColor(45, 45, 45);
   doc.text('Available on request.', margin + 28, currentY);
 
-  const publicDir = path.resolve(process.cwd(), 'public');
-  if (!fs.existsSync(publicDir)) {
-    fs.mkdirSync(publicDir, { recursive: true });
+  const cvDir = path.resolve(process.cwd(), 'public', 'cv');
+  if (!fs.existsSync(cvDir)) {
+    fs.mkdirSync(cvDir, { recursive: true });
   }
 
   const pdfOutput = doc.output();
-  fs.writeFileSync(path.join(publicDir, 'cv.pdf'), Buffer.from(pdfOutput, 'binary'));
-  console.log('Successfully generated /public/cv.pdf');
+  fs.writeFileSync(path.join(cvDir, 'cv.pdf'), Buffer.from(pdfOutput, 'binary'));
+  console.log('Successfully generated /public/cv/cv.pdf');
 }
 
 generateCV();

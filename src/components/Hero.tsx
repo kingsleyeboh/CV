@@ -27,7 +27,7 @@ export default function Hero({
     setDownloading(type);
     try {
       if (type === 'cv') {
-        await downloadPdf('/cv.pdf', 'Eboh-Kingsley-Cabinetmaker-CV.pdf');
+        await downloadPdf(currentProfile.cvPath, currentProfile.cvFilename);
       } else {
         await downloadPdf('/Certificates.pdf', 'Eboh-Kingsley-Certificates.pdf');
       }
@@ -81,7 +81,7 @@ export default function Hero({
 
             <div className="space-y-5 pt-2">
               <p className="text-xs sm:text-sm text-zinc-400">
-                {currentProfile.bullets.join(' · ')}
+                {currentProfile.bullets.join(' · ')} · <span className="text-zinc-300 font-mono">{currentProfile.cvFilename}</span>
               </p>
 
               {/* Focused Action Row */}
@@ -90,10 +90,15 @@ export default function Hero({
                   type="button"
                   onClick={() => handleDownload('cv')}
                   disabled={downloading === 'cv'}
+                  title={`Download ${currentProfile.label} CV (${currentProfile.cvFilename})`}
                   className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-zinc-950 bg-amber-500 hover:bg-amber-400 disabled:opacity-70 rounded-lg transition-colors whitespace-nowrap shrink-0"
                 >
                   <Download className="w-4 h-4" />
-                  <span>{downloading === 'cv' ? 'Preparing CV...' : 'Download CV (PDF)'}</span>
+                  <span>
+                    {downloading === 'cv'
+                      ? 'Preparing CV...'
+                      : `Download ${currentProfile.label} CV (PDF)`}
+                  </span>
                 </button>
 
                 <a

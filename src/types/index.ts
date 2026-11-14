@@ -1,4 +1,4 @@
-export type CountryPerspective = 'international' | 'australia' | 'uk' | 'eu';
+export type CountryPerspective = 'international' | 'australia' | 'uk' | 'luxembourg' | 'germany' | 'canada';
 
 export type ProjectCategory =
   | 'All'
