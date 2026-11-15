@@ -23,9 +23,6 @@ export default function ProjectsSection({
               Cabinetry & Installation Projects
             </h2>
           </div>
-          <p className="text-sm text-zinc-400 max-w-md">
-            Select any photo to open the full gallery and inspect materials and project specifications.
-          </p>
         </div>
 
         <div className="space-y-14">
